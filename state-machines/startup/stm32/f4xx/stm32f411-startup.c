@@ -1,8 +1,14 @@
 #include <stdint.h>
 
-extern uint32_t _estack;
+extern uint32_t _stackptr;
+extern uint32_t _etext;
+extern uint32_t _sdata;
+extern uint32_t _edata;
+extern uint32_t __bss_start__;
+extern uint32_t __bss_end__;
 
 void Reset_Handler(void);
+void main(void);
 
 /*Alias all exceptions and interrupts to Default_Handler*/
 void NMI_Handler(void)                      __attribute__ ((weak, alias("Default_Handler")));
@@ -75,7 +81,7 @@ void SPI5_IRQHandler(void)                   __attribute__ ((weak, alias("Defaul
 
 
 uint32_t vector_table[] __attribute__ ((section(".isr_vector_table")))= {
-    (uint32_t)&_estack,
+    (uint32_t)&_stackptr,
     (uint32_t)&Reset_Handler,
     (uint32_t)&NMI_Handler,
     (uint32_t)&HardFault_Handler,
@@ -188,5 +194,25 @@ void Default_Handler(void)
 /*Entry Point*/
 void Reset_Handler(void)
 {
-    
+    /*Get data and bss memory sections size*/
+    uint32_t data_mem_size = (uint32_t)&_edata - (uint32_t)&_sdata;
+    uint32_t bss_mem_size = (uint32_t)&__bss_end__ - (uint32_t)&__bss_start__;
+
+    /*Copy data from FLASH to SRAM*/
+    uint32_t *ptr_src_mem = (uint32_t)&_etext;
+    uint32_t *ptr_dest_mem = (uint32_t)&_sdata;
+
+    for(uint32_t i = 0; i < data_mem_size; i++)
+    {
+        *ptr_dest_mem++ = *ptr_src_mem++;
+    }
+
+    /*Initialize BSS section with 0's*/
+    ptr_dest_mem = (uint32_t)&__bss_start__;
+    for(uint32_t i = 0; i < __bss_end__; i++)
+    {
+        *ptr_dest_mem++ = (uint32_t)0x00;
+    }
+
+    main();
 }
